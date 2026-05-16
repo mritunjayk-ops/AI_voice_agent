@@ -1,4 +1,5 @@
 const micButton = document.getElementById("micButton");
+const stopSpeakingButton = document.getElementById("stopSpeakingButton");
 const statusText = document.getElementById("status");
 
 let mediaRecorder;
@@ -6,20 +7,48 @@ let audioChunks = [];
 let recordingMimeType = "";
 
 let currentAudio = null;
+let currentAudioUrl = null;
+
+
+function resetAudioPlayback(statusMessage) {
+
+    if (currentAudio) {
+
+        currentAudio.pause();
+
+        currentAudio.onended = null;
+        currentAudio.onerror = null;
+
+        currentAudio.removeAttribute("src");
+        currentAudio.load();
+
+        currentAudio = null;
+    }
+
+    if (currentAudioUrl) {
+
+        URL.revokeObjectURL(
+            currentAudioUrl
+        );
+
+        currentAudioUrl = null;
+    }
+
+    stopSpeakingButton.disabled = true;
+
+    if (statusMessage) {
+
+        statusText.innerText =
+            statusMessage;
+    }
+}
 
 
 async function startRecording() {
 
     try {
 
-        // STOP CURRENT AI SPEECH
-
-        if (currentAudio) {
-
-            currentAudio.pause();
-
-            currentAudio.currentTime = 0;
-        }
+        resetAudioPlayback();
 
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: true
@@ -102,26 +131,53 @@ async function startRecording() {
                         responseBlob
                     );
 
+                currentAudioUrl =
+                    audioUrl;
+
                 currentAudio =
                     new Audio(audioUrl);
+
+                stopSpeakingButton.disabled =
+                    false;
 
                 statusText.innerText =
                     "AI is speaking...";
 
-                await currentAudio.play();
-
                 currentAudio.onended = () => {
 
-                    statusText.innerText =
-                        "Hold button and speak";
+                    resetAudioPlayback(
+                        "Hold button and speak"
+                    );
                 };
+
+                currentAudio.onerror = () => {
+
+                    resetAudioPlayback(
+                        "Audio playback failed"
+                    );
+                };
+
+                try {
+
+                    await currentAudio.play();
+
+                } catch (playError) {
+
+                    if (playError.name === "AbortError") {
+
+                        return;
+                    }
+
+                    throw playError;
+                }
 
             } catch (error) {
 
                 console.error(error);
 
-                statusText.innerText =
-                    "Error occurred";
+                resetAudioPlayback(
+                    "Error occurred"
+                );
             }
         };
 
@@ -153,6 +209,17 @@ function stopRecording() {
         mediaRecorder.stop();
     }
 }
+
+
+stopSpeakingButton.addEventListener(
+    "click",
+    () => {
+
+        resetAudioPlayback(
+            "Hold button and speak"
+        );
+    }
+);
 
 
 micButton.addEventListener(
