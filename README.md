@@ -96,8 +96,8 @@ Note: `chat_routes.py` and `voice_routes.py` are currently mounted in `main.py`.
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repository-url>
-cd ai_voice_agent
+git clone https://github.com/mritunjayk-ops/AI_voice_agent.git
+cd AI_voice_agent
 ```
 
 ### 2. Create a Virtual Environment
