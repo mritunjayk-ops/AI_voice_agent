@@ -1,16 +1,141 @@
 const micButton = document.getElementById("micButton");
 const stopSpeakingButton = document.getElementById("stopSpeakingButton");
 const statusText = document.getElementById("status");
+const statusDot = document.getElementById("statusDot");
+const chatMessages = document.getElementById("chatMessages");
+const emptyConversation = document.getElementById("emptyConversation");
 
 let mediaRecorder;
+let mediaStream = null;
 let audioChunks = [];
 let recordingMimeType = "";
 
 let currentAudio = null;
 let currentAudioUrl = null;
+let statusTimers = [];
 
 
-function resetAudioPlayback(statusMessage) {
+function setStatus(message, state) {
+
+    statusText.innerText =
+        message;
+
+    statusDot.className =
+        `status-dot ${state}`;
+
+    micButton.classList.toggle(
+        "listening",
+        state === "listening"
+    );
+}
+
+
+function clearStatusTimers() {
+
+    statusTimers.forEach((timerId) => {
+
+        clearTimeout(timerId);
+    });
+
+    statusTimers = [];
+}
+
+
+function scheduleProcessingStatuses() {
+
+    clearStatusTimers();
+
+    setStatus(
+        "Thinking",
+        "thinking"
+    );
+}
+
+
+function stopMediaStream() {
+
+    if (!mediaStream) {
+
+        return;
+    }
+
+    mediaStream.getTracks().forEach((track) => {
+
+        track.stop();
+    });
+
+    mediaStream = null;
+}
+
+
+function scrollConversationToBottom() {
+
+    chatMessages.scrollTop =
+        chatMessages.scrollHeight;
+}
+
+
+function addMessage(role, text) {
+
+    if (!text) {
+
+        return;
+    }
+
+    emptyConversation.hidden =
+        true;
+
+    const message = document.createElement("div");
+    message.className =
+        `message ${role}`;
+
+    const label = document.createElement("div");
+    label.className =
+        "message-label";
+    label.innerText =
+        role === "user"
+            ? "You"
+            : "AI";
+
+    const body = document.createElement("div");
+    body.innerText =
+        text;
+
+    message.appendChild(label);
+    message.appendChild(body);
+    chatMessages.appendChild(message);
+
+    scrollConversationToBottom();
+}
+
+
+function readResponseHeader(response, headerName) {
+
+    const value = response.headers.get(
+        headerName
+    );
+
+    if (!value) {
+
+        return "";
+    }
+
+    try {
+
+        return decodeURIComponent(
+            value
+        );
+
+    } catch (error) {
+
+        console.warn(error);
+
+        return value;
+    }
+}
+
+
+function resetAudioPlayback(statusMessage = "Ready") {
 
     if (currentAudio) {
 
@@ -34,13 +159,15 @@ function resetAudioPlayback(statusMessage) {
         currentAudioUrl = null;
     }
 
-    stopSpeakingButton.disabled = true;
+    stopSpeakingButton.disabled =
+        true;
 
-    if (statusMessage) {
-
-        statusText.innerText =
-            statusMessage;
-    }
+    setStatus(
+        statusMessage,
+        statusMessage === "Ready"
+            ? "ready"
+            : "error"
+    );
 }
 
 
@@ -48,9 +175,10 @@ async function startRecording() {
 
     try {
 
+        clearStatusTimers();
         resetAudioPlayback();
 
-        const stream = await navigator.mediaDevices.getUserMedia({
+        mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: true
         });
 
@@ -63,7 +191,7 @@ async function startRecording() {
             : "";
 
         mediaRecorder = new MediaRecorder(
-            stream,
+            mediaStream,
             recordingMimeType
                 ? {
                     mimeType: recordingMimeType
@@ -81,13 +209,10 @@ async function startRecording() {
 
         mediaRecorder.onstop = async () => {
 
+            stopMediaStream();
+            scheduleProcessingStatuses();
+
             try {
-
-                statusText.innerText =
-                    "Processing voice...";
-
-                // IMPORTANT:
-                // KEEP THIS SIMPLE
 
                 const audioBlob = new Blob(
                     audioChunks,
@@ -123,6 +248,28 @@ async function startRecording() {
                     );
                 }
 
+                clearStatusTimers();
+
+                const userText = readResponseHeader(
+                    response,
+                    "X-User-Transcript"
+                );
+
+                const aiText = readResponseHeader(
+                    response,
+                    "X-AI-Response"
+                );
+
+                addMessage(
+                    "user",
+                    userText || "Voice message"
+                );
+
+                addMessage(
+                    "ai",
+                    aiText || "AI response generated as speech."
+                );
+
                 const responseBlob =
                     await response.blob();
 
@@ -140,13 +287,15 @@ async function startRecording() {
                 stopSpeakingButton.disabled =
                     false;
 
-                statusText.innerText =
-                    "AI is speaking...";
+                setStatus(
+                    "Speaking",
+                    "speaking"
+                );
 
                 currentAudio.onended = () => {
 
                     resetAudioPlayback(
-                        "Hold button and speak"
+                        "Ready"
                     );
                 };
 
@@ -175,6 +324,8 @@ async function startRecording() {
 
                 console.error(error);
 
+                clearStatusTimers();
+
                 resetAudioPlayback(
                     "Error occurred"
                 );
@@ -183,15 +334,21 @@ async function startRecording() {
 
         mediaRecorder.start();
 
-        statusText.innerText =
-            "Listening...";
+        setStatus(
+            "Listening",
+            "listening"
+        );
 
     } catch (error) {
 
         console.error(error);
 
-        statusText.innerText =
-            "Microphone access denied";
+        stopMediaStream();
+
+        setStatus(
+            "Microphone access denied",
+            "error"
+        );
     }
 }
 
@@ -203,9 +360,6 @@ function stopRecording() {
         mediaRecorder.state !== "inactive"
     ) {
 
-        statusText.innerText =
-            "Stopping recording...";
-
         mediaRecorder.stop();
     }
 }
@@ -215,8 +369,10 @@ stopSpeakingButton.addEventListener(
     "click",
     () => {
 
+        clearStatusTimers();
+
         resetAudioPlayback(
-            "Hold button and speak"
+            "Ready"
         );
     }
 );
@@ -229,5 +385,25 @@ micButton.addEventListener(
 
 micButton.addEventListener(
     "mouseup",
+    stopRecording
+);
+
+micButton.addEventListener(
+    "mouseleave",
+    stopRecording
+);
+
+micButton.addEventListener(
+    "touchstart",
+    (event) => {
+
+        event.preventDefault();
+
+        startRecording();
+    }
+);
+
+micButton.addEventListener(
+    "touchend",
     stopRecording
 );

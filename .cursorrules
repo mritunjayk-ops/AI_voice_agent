@@ -1,0 +1,116 @@
+# Cursor Rules for AI Voice Agent
+
+## Project Context
+
+This project is a conversational Voice AI assistant with:
+
+- FastAPI backend routes
+- Groq LLM integration
+- Sarvam STT/TTS integration
+- Static HTML/CSS/JavaScript frontend
+- Voice-first browser interaction
+- Structured logging and latency metrics for demo observability
+
+Treat this as a working demo-oriented voice pipeline. Prefer stable, incremental improvements over broad rewrites.
+
+## Architecture Rules
+
+- Preserve the existing modular boundaries:
+  - `main.py` owns app setup, middleware, and router registration.
+  - `app/api/routes/` owns HTTP route orchestration.
+  - `app/services/` owns external provider calls and service integrations.
+  - `app/core/` owns configuration and logging.
+  - `frontend/` owns browser UI, recording, playback, interruption, and conversation display.
+- Do not move business logic across layers unless there is a clear stability or maintainability reason.
+- Keep API route handlers thin, readable, and focused on orchestration.
+- Keep provider-specific details inside service modules.
+- Avoid introducing new frameworks, build tools, state managers, or frontend libraries unless explicitly requested.
+
+## API Contract Rules
+
+- Preserve existing endpoint behavior unless the change is explicitly requested.
+- `/voice-chat` should continue to accept uploaded audio and return playable audio.
+- If additional metadata is needed for the frontend, prefer additive response headers or additive fields that do not break existing clients.
+- Do not remove or rename existing endpoints without an explicit migration plan.
+- Maintain CORS compatibility for the local frontend development flow.
+
+## Voice Pipeline Rules
+
+- Preserve the current voice flow:
+  - browser recording
+  - backend STT
+  - Groq LLM response
+  - Sarvam TTS
+  - browser playback
+- Keep interruption behavior intact:
+  - Stop Speaking must immediately pause current audio playback.
+  - Audio object URLs should be revoked after use.
+  - Audio state should be reset cleanly.
+  - The user should be able to speak again immediately after stopping playback.
+- Do not block the frontend with unnecessary UI states or modal flows.
+
+## Frontend UX Rules
+
+- Keep the frontend voice-first and minimal.
+- Preserve the centered microphone-focused experience.
+- Status indicators and conversation history should remain lightweight secondary elements.
+- Do not redesign the app into a full chatbot dashboard unless explicitly requested.
+- Keep the mic button prominent and interaction simple.
+- Preserve the Stop Speaking control.
+- Ensure text contrast is readable, especially AI responses in the conversation panel.
+- Prefer small, targeted CSS/JS changes over broad markup rewrites.
+- Maintain auto-scroll behavior for newest conversation messages.
+
+## Logging and Observability Rules
+
+- Preserve structured INFO logs for the voice pipeline.
+- Maintain latency metrics for:
+  - STT
+  - LLM/Groq
+  - TTS
+  - total voice pipeline time
+- Keep logs demo-friendly, professional, and readable in the terminal.
+- Include request correlation identifiers when logging multi-stage pipeline events.
+- Do not log secrets, API keys, raw authorization headers, or sensitive payloads.
+- Avoid noisy debug logs in normal demo flow.
+
+## Secrets and Configuration Rules
+
+- Never hardcode API keys or secrets.
+- Use the existing configuration pattern in `app/core/config.py`.
+- Keep provider credentials in environment variables or `.env` files that are not committed.
+- Do not print secrets in logs, errors, frontend code, or comments.
+
+## Provider Integration Rules
+
+- Keep Groq integration isolated in `app/services/groq_service.py`.
+- Keep Sarvam STT/TTS integration isolated in `app/services/sarvam_service.py`.
+- Do not duplicate provider request logic in routes or frontend code.
+- Preserve provider model settings unless a change is explicitly requested.
+- Handle provider errors cleanly without exposing sensitive internals to the frontend.
+
+## Change Management Rules
+
+- Prefer incremental changes that preserve working behavior.
+- Avoid large refactors unless they directly solve the requested problem.
+- Do not rewrite unrelated files.
+- Keep changes scoped to the feature or bug being addressed.
+- Read the existing code before modifying it.
+- Match the repository's current simple style unless there is a strong reason to improve it.
+- Add abstractions only when they reduce real complexity or duplication.
+
+## Testing and Verification Rules
+
+- For backend changes, run Python syntax or compile checks when possible.
+- For frontend JavaScript changes, run `node --check frontend/script.js` when possible.
+- For CSS/HTML changes, verify the rendered UI when practical.
+- Confirm that Stop Speaking, status updates, and audio playback state are not regressed by frontend edits.
+- When provider calls cannot be tested locally, document the limitation and verify all code paths that do not require external credentials.
+
+## Collaboration Rules
+
+- Optimize for readable, maintainable code that another developer can quickly understand.
+- Explain significant architectural changes before making them.
+- Do not introduce speculative features.
+- Keep user-facing copy concise and demo-friendly.
+- Preserve current functionality first; polish comes second.

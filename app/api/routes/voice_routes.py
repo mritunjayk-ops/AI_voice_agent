@@ -2,6 +2,7 @@ import base64
 import os
 import time
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -31,7 +32,8 @@ os.makedirs(
 
 async def _audio_file_response(
     text: str,
-    request_id: str | None = None
+    request_id: str | None = None,
+    user_text: str | None = None
 ):
 
     tts_start = time.perf_counter()
@@ -90,10 +92,23 @@ async def _audio_file_response(
             audio_bytes
         )
 
+    response_headers = {
+        "X-AI-Response": quote(
+            text
+        )
+    }
+
+    if user_text is not None:
+
+        response_headers["X-User-Transcript"] = quote(
+            user_text
+        )
+
     return FileResponse(
         path=output_file_path,
         media_type="audio/wav",
-        filename=output_file_name
+        filename=output_file_name,
+        headers=response_headers
     )
 
 
@@ -186,7 +201,8 @@ async def voice_chat(
 
     response = await _audio_file_response(
         ai_response,
-        request_id
+        request_id,
+        user_text
     )
 
     total_latency_ms = (
