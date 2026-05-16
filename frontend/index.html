@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>AI Voice Agent</title>
+
+    <style>
+
+        body {
+
+            margin: 0;
+            padding: 0;
+
+            background-color: #07152f;
+
+            color: white;
+
+            font-family: Arial, sans-serif;
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            height: 100vh;
+        }
+
+        .container {
+
+            width: 500px;
+
+            background: #13203b;
+
+            padding: 30px;
+
+            border-radius: 20px;
+
+            text-align: center;
+
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.4);
+        }
+
+        h1 {
+
+            margin-bottom: 10px;
+        }
+
+        #status {
+
+            color: #4fc3f7;
+
+            margin-bottom: 25px;
+
+            min-height: 20px;
+        }
+
+        #micButton {
+
+            width: 150px;
+
+            height: 150px;
+
+            border-radius: 50%;
+
+            border: none;
+
+            background: #1e88e5;
+
+            color: white;
+
+            font-size: 20px;
+
+            cursor: pointer;
+
+            transition: 0.3s;
+        }
+
+        #micButton:hover {
+
+            transform: scale(1.05);
+
+            background: #42a5f5;
+        }
+
+        #micButton:active {
+
+            background: #1565c0;
+
+            transform: scale(0.95);
+        }
+
+        .instructions {
+
+            margin-top: 25px;
+
+            color: #b0bec5;
+
+            font-size: 14px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>AI Voice Agent</h1>
+
+        <div id="status">
+            Hold button and speak
+        </div>
+
+        <button id="micButton">
+            🎤
+        </button>
+
+        <div class="instructions">
+
+            Hold the mic button while speaking.<br>
+            Release it when finished.
+
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
