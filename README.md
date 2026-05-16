@@ -6,6 +6,16 @@ The project captures microphone input in the browser, sends the recorded audio t
 
 This is an evolving AI assistant system focused on practical voice interaction, modular backend services, and a clean frontend-to-backend voice pipeline.
 
+## Problem Statement
+
+Most assistant demos start with typed chat, but many real assistant workflows are voice-first. The engineering challenge is coordinating browser recording, speech-to-text, LLM response generation, text-to-speech, audio playback, interruption handling, and observability in one stable request-response pipeline.
+
+This project focuses on that orchestration layer: making the system usable from the browser while keeping the backend modular enough to improve providers, latency, and interaction behavior over time.
+
+## Why I Built This
+
+I built this project to explore how a practical Voice AI assistant can be assembled from production-style components without overcomplicating the architecture. The goal was to demonstrate a working conversational loop, clear service boundaries, observable pipeline stages, and a minimal voice-first frontend suitable for iteration.
+
 ## Features
 
 - Browser microphone input using the MediaRecorder API
@@ -14,8 +24,26 @@ This is an evolving AI assistant system focused on practical voice interaction, 
 - Short-term conversational memory per session
 - Text-to-speech voice replies through Sarvam AI
 - Browser audio playback for generated responses
+- Stop Speaking control for interrupting current playback
+- Lightweight AI status indicator for listening, thinking, and speaking states
+- Compact conversation history panel for demo visibility
+- Structured pipeline logging with latency metrics
 - FastAPI backend with modular route and service layers
 - Simple HTML, CSS, and JavaScript frontend
+
+## Demo Section
+
+### Frontend UI
+
+![Frontend UI](screenshots/frontend-ui.png)
+
+### Pipeline Logs
+
+![Pipeline Logs](screenshots/terminal-logs.png)
+
+### Loom Demo
+
+Loom demo link will be added after recording.
 
 ## Architecture Flow
 
@@ -30,6 +58,33 @@ Browser microphone
     -> WAV audio response
     -> Browser playback
 ```
+
+## Workflow Comparison
+
+| Area | Traditional Chat Workflow | This Voice-First AI System |
+| --- | --- | --- |
+| User input | Typed text message | Browser microphone recording |
+| Input processing | Direct text payload | Audio upload followed by speech-to-text |
+| Model interaction | LLM receives text | LLM receives transcribed speech |
+| Output | Text response in chat UI | Generated speech audio played in browser |
+| Interaction style | Keyboard-first | Voice-first with optional conversation visibility |
+| Interruption | Usually not needed | Stop Speaking control resets active playback |
+| Observability | Often request-level logs only | Stage-level logs for STT, LLM, TTS, and total latency |
+
+## Observability & Metrics
+
+The backend logs structured pipeline events through the project logger. Each `/voice-chat` request receives a `request_id`, making it easier to follow the orchestration flow across STT, Groq, TTS, and final response generation.
+
+Example observed timings from `logs/app.log`:
+
+| Metric | Observed latency |
+| --- | ---: |
+| STT latency | 2518.09 ms |
+| LLM latency | 350.86 ms |
+| TTS latency | 2351.95 ms |
+| Total pipeline latency | 5228.98 ms |
+
+The logs are intended to support demo review, performance evaluation, and future optimization work without requiring a separate observability stack.
 
 ## Tech Stack
 
@@ -188,6 +243,7 @@ You can also use a local development server such as VS Code Live Server, as long
 5. Release the button to send the recording to the backend.
 6. The backend transcribes the audio, generates a Groq response, converts it to speech, and returns a WAV file.
 7. The browser plays the generated voice response.
+8. Use Stop Speaking to interrupt current playback and return to a ready state.
 
 ## API Endpoints
 
@@ -209,14 +265,29 @@ Pipeline:
 audio file -> Sarvam STT -> Groq -> Sarvam TTS -> audio/wav
 ```
 
+The response remains playable audio. The backend also exposes transcript and AI response text through response headers so the lightweight conversation panel can render the exchange without changing the core audio contract.
+
 ### `GET /voice-test`
 
 Runs a hardcoded voice test prompt through Groq and Sarvam TTS, then returns a generated WAV file.
 
+## AI-Native Development Workflow
+
+The project includes a `.cursorrules` file to guide collaborative AI-assisted development. Its purpose is to keep future changes aligned with the current architecture and product direction:
+
+- preserve route, service, frontend, and logging boundaries
+- avoid unnecessary rewrites or speculative abstractions
+- keep the frontend voice-first and minimal
+- preserve the `/voice-chat` audio contract and interruption behavior
+- maintain structured logging and latency metrics
+- prevent hardcoded secrets or provider credentials
+
+These rules are intended to make AI-native iteration safer by giving coding assistants explicit project constraints before they modify the codebase.
+
 ## Current Limitations
 
 - Voice interaction is request-response based, not realtime streaming.
-- Interruption handling is basic: the frontend stops current playback when a new recording starts.
+- Interruption handling is frontend-side: Stop Speaking immediately stops current browser playback, but provider calls already in progress are not cancelled server-side.
 - Conversational memory is in-memory only and resets when the backend restarts.
 - Generated audio files are stored locally in `generated_audio/`.
 - The frontend is intentionally minimal and currently optimized for desktop browser use.
