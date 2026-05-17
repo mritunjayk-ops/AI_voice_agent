@@ -43,7 +43,7 @@ I built this project to explore how a practical Voice AI assistant can be assemb
 
 ### Loom Demo
 
-Loom demo link will be added after recording.
+https://www.loom.com/share/aa14ca5466e84cf7a381dd44fb9e5695
 
 ## Architecture Flow
 
