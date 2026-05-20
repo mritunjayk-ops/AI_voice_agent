@@ -5,6 +5,8 @@ const statusDot = document.getElementById("statusDot");
 const chatMessages = document.getElementById("chatMessages");
 const emptyConversation = document.getElementById("emptyConversation");
 
+const SESSION_STORAGE_KEY = "ai_voice_agent_session_id";
+
 let mediaRecorder;
 let mediaStream = null;
 let audioChunks = [];
@@ -13,6 +15,70 @@ let recordingMimeType = "";
 let currentAudio = null;
 let currentAudioUrl = null;
 let statusTimers = [];
+
+
+function createBrowserSessionId() {
+
+    if (
+        window.crypto &&
+        typeof window.crypto.randomUUID === "function"
+    ) {
+
+        return window.crypto.randomUUID();
+    }
+
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+
+function getSessionId() {
+
+    try {
+
+        let sessionId = localStorage.getItem(
+            SESSION_STORAGE_KEY
+        );
+
+        if (!sessionId) {
+
+            sessionId = createBrowserSessionId();
+
+            localStorage.setItem(
+                SESSION_STORAGE_KEY,
+                sessionId
+            );
+        }
+
+        return sessionId;
+
+    } catch (error) {
+
+        console.warn(error);
+
+        return createBrowserSessionId();
+    }
+}
+
+
+function storeSessionId(sessionId) {
+
+    if (!sessionId) {
+
+        return;
+    }
+
+    try {
+
+        localStorage.setItem(
+            SESSION_STORAGE_KEY,
+            sessionId
+        );
+
+    } catch (error) {
+
+        console.warn(error);
+    }
+}
 
 
 function setStatus(message, state) {
@@ -233,6 +299,11 @@ async function startRecording() {
                         : "recording"
                 );
 
+                formData.append(
+                    "session_id",
+                    getSessionId()
+                );
+
                 const response = await fetch(
                     "http://127.0.0.1:8000/voice-chat",
                     {
@@ -258,6 +329,13 @@ async function startRecording() {
                 const aiText = readResponseHeader(
                     response,
                     "X-AI-Response"
+                );
+
+                storeSessionId(
+                    readResponseHeader(
+                        response,
+                        "X-Session-ID"
+                    )
                 );
 
                 addMessage(

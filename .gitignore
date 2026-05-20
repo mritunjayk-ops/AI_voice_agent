@@ -5,3 +5,4 @@ logs/
 *.pyc
 generated_audio/
 temp_audio/
+app.db

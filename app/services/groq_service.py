@@ -1,12 +1,15 @@
 from groq import Groq
 
 from app.core.config import GROQ_API_KEY
-from app.services.cache_service import (
-    get_session_memory,
-    add_message
+from app.services.memory_service import (
+    get_conversation_history,
+    save_message
 )
 
 client = Groq(api_key=GROQ_API_KEY)
+
+MAX_CONTEXT_MESSAGES = 20
+GROQ_MODEL = "llama-3.1-8b-instant"
 
 
 async def generate_response(
@@ -14,12 +17,9 @@ async def generate_response(
     user_message: str
 ):
 
-    memory = get_session_memory(session_id)
-
-    add_message(
+    memory = get_conversation_history(
         session_id,
-        "user",
-        user_message
+        limit=MAX_CONTEXT_MESSAGES
     )
 
     messages = [
@@ -30,10 +30,15 @@ async def generate_response(
                 "Keep replies short and conversational."
             )
         }
-    ] + memory
+    ] + memory + [
+        {
+            "role": "user",
+            "content": user_message
+        }
+    ]
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=messages,
         temperature=0.7,
         max_tokens=60
@@ -44,7 +49,13 @@ async def generate_response(
         .message.content
     )
 
-    add_message(
+    save_message(
+        session_id,
+        "user",
+        user_message
+    )
+
+    save_message(
         session_id,
         "assistant",
         ai_response

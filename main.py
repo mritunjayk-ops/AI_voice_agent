@@ -32,7 +32,8 @@ app.add_middleware(
 
     expose_headers=[
         "X-User-Transcript",
-        "X-AI-Response"
+        "X-AI-Response",
+        "X-Session-ID"
     ]
 )
 

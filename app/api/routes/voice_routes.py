@@ -4,7 +4,7 @@ import time
 import uuid
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.logger import logger
@@ -17,6 +17,7 @@ from app.services.sarvam_service import (
     speech_to_text,
     text_to_speech
 )
+from app.services.session_service import resolve_session_id
 
 
 router = APIRouter()
@@ -33,7 +34,8 @@ os.makedirs(
 async def _audio_file_response(
     text: str,
     request_id: str | None = None,
-    user_text: str | None = None
+    user_text: str | None = None,
+    session_id: str | None = None
 ):
 
     tts_start = time.perf_counter()
@@ -104,6 +106,10 @@ async def _audio_file_response(
             user_text
         )
 
+    if session_id is not None:
+
+        response_headers["X-Session-ID"] = session_id
+
     return FileResponse(
         path=output_file_path,
         media_type="audio/wav",
@@ -114,8 +120,20 @@ async def _audio_file_response(
 
 @router.post("/voice-chat")
 async def voice_chat(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    session_id: str | None = Form(None)
 ):
+
+    try:
+        resolved_session_id = resolve_session_id(
+            session_id
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc)
+        ) from exc
 
     request_id = str(
         uuid.uuid4()
@@ -184,7 +202,7 @@ async def voice_chat(
     )
 
     ai_response = await generate_response(
-        "default_user",
+        resolved_session_id,
         user_text
     )
 
@@ -202,7 +220,8 @@ async def voice_chat(
     response = await _audio_file_response(
         ai_response,
         request_id,
-        user_text
+        user_text,
+        resolved_session_id
     )
 
     total_latency_ms = (
@@ -221,15 +240,20 @@ async def voice_chat(
 @router.get("/voice-test")
 async def voice_test():
 
+    session_id = resolve_session_id(
+        "voice_test"
+    )
+
     user_text = (
         "Recommend me some good ice cream."
     )
 
     ai_response = await generate_response(
-        "default_user",
+        session_id,
         user_text
     )
 
     return await _audio_file_response(
-        ai_response
+        ai_response,
+        session_id=session_id
     )
