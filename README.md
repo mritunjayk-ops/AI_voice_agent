@@ -18,18 +18,15 @@ I built this project to explore how a practical Voice AI assistant can be assemb
 
 ## Features
 
-- Browser microphone input using the MediaRecorder API
-- Speech-to-text transcription through Sarvam AI
-- Groq-powered conversational responses
-- Short-term conversational memory per session
-- Text-to-speech voice replies through Sarvam AI
-- Browser audio playback for generated responses
-- Stop Speaking control for interrupting current playback
-- Lightweight AI status indicator for listening, thinking, and speaking states
-- Compact conversation history panel for demo visibility
-- Structured pipeline logging with latency metrics
-- FastAPI backend with modular route and service layers
-- Simple HTML, CSS, and JavaScript frontend
+- **Dual Interaction Modes**: Push-to-Talk (HTTP/WAV) and Real-time Streaming (WebSockets).
+- **LangChain-Powered Conversational Agent**: Equipped with tools to manage notes, todos, search conversation history, and perform calculations.
+- **WebSocket Streaming Mode**: Real-time continuous speech streaming from browser to backend.
+- **Dynamic Waveform Visualization**: Live visual feedback on both audio input and output using HTML5 Canvas.
+- **Real-Time Live Captions**: Transcribes incoming streaming speech in real-time on the UI.
+- **Persistent SQLite Memory**: Uses a local SQLite database (`app.db`) to store session conversations, notes, and task lists.
+- **Browser Audio Playback**: Plays generated speech audio responses with an interruption queue.
+- **Stop Speaking Control**: Resets active audio playback and cancels server-side agent runs.
+- **Observability & Logging**: Structured pipeline logs detailing STT, LLM, and TTS latency metrics.
 
 ## Demo Section
 
@@ -47,16 +44,29 @@ https://www.loom.com/share/aa14ca5466e84cf7a381dd44fb9e5695
 
 ## Architecture Flow
 
+### Push-to-Talk Mode (HTTP)
 ```text
 Browser microphone
     -> frontend/script.js
     -> POST /voice-chat
     -> FastAPI backend
     -> Sarvam Speech-to-Text
-    -> Groq LLM
+    -> Groq / LangChain Agent (with tools & SQLite memory)
     -> Sarvam Text-to-Speech
     -> WAV audio response
     -> Browser playback
+```
+
+### Real-Time Streaming Mode (WebSockets)
+```text
+Browser microphone
+    -> WebSocket /ws/stream-voice
+    -> FastAPI backend (accumulates PCM chunk)
+    -> Sarvam STT (on voice stop)
+    -> Streams tokens from Groq
+    -> Chunks sentences -> Sarvam TTS (parallel)
+    -> Base64 WAV chunks -> Browser queue
+    -> Sequential audio playback
 ```
 
 ## Workflow Comparison
@@ -96,10 +106,12 @@ The logs are intended to support demo review, performance evaluation, and future
 - HTTPX
 - Pydantic
 - python-dotenv
+- LangChain / langchain-groq (Agent Framework)
+- SQLite3 (Persistent database)
 
 ### AI Services
 
-- Groq LLM API
+- Groq LLM API (Llama models)
 - Sarvam AI Speech-to-Text
 - Sarvam AI Text-to-Speech
 
@@ -109,42 +121,59 @@ The logs are intended to support demo review, performance evaluation, and future
 - CSS
 - JavaScript
 - Browser MediaRecorder API
-- Browser Audio API
+- Browser Audio API & WebSockets
+- HTML5 Canvas API (Waveform visualizer)
 
 ## Folder Structure
 
 ```text
 ai_voice_agent/
 |-- app/
+|   |-- agents/
+|   |   `-- voice_agent.py          # LangChain voice assistant definition
 |   |-- api/
 |   |   `-- routes/
-|   |       |-- chat_routes.py
-|   |       |-- tts_routes.py
-|   |       |-- voice_routes.py
-|   |       `-- websocket_routes.py
+|   |       |-- chat_routes.py      # Plain chat route with memory
+|   |       |-- tts_routes.py       # Direct text-to-speech route (unmounted)
+|   |       |-- voice_routes.py     # Push-to-Talk audio route
+|   |       `-- websocket_routes.py # WebSocket real-time audio & streaming route
 |   |-- core/
-|   |   |-- config.py
-|   |   `-- logger.py
+|   |   |-- config.py               # Env configuration loader
+|   |   `-- logger.py               # Application-wide structured logging
 |   |-- models/
-|   |   `-- chat_models.py
+|   |   `-- chat_models.py          # Pydantic schemas
 |   |-- services/
-|   |   |-- cache_service.py
-|   |   |-- groq_service.py
-|   |   `-- sarvam_service.py
+|   |   |-- agent_service.py        # LangChain agent wrapper & execution
+|   |   |-- cache_service.py        # Simple cache management
+|   |   |-- groq_service.py         # Direct Groq completions & fallback routing
+|   |   |-- memory_service.py       # SQLite database initialization & message saving
+|   |   |-- sarvam_service.py       # Sarvam STT & TTS HTTP clients
+|   |   |-- session_service.py      # Session ID generators and validation
+|   |   `-- tool_storage_service.py # SQLite interfaces for agent tools
+|   |-- tools/
+|   |   |-- conversation_tools.py   # Search conversation history tool
+|   |   |-- notes_tools.py          # Save, list, and search notes tools
+|   |   |-- todo_tools.py           # Add, list, and complete todo tools
+|   |   `-- utility_tools.py        # Calculator & clock utility tools
 |   `-- utils/
 |-- frontend/
-|   |-- index.html
-|   |-- script.js
-|   `-- style.css
-|-- generated_audio/
-|-- logs/
-|-- temp_audio/
-|-- main.py
-|-- requirements.txt
-`-- README.md
+|   |-- index.html                  # Responsive UI layout
+|   |-- script.js                   # Handles mic, WebSockets, Canvas, PTT, and audio player
+|   `-- style.css                   # Custom modern styles
+|-- generated_audio/                # Local cache directory for generated TTS audio files
+|-- logs/                           # Local app logs
+|-- scratch/                        # Diagnostic and test scripts
+|   |-- check_db.py                 # SQLite verification script
+|   |-- test_sarvam_ws.py           # Sarvam WebSocket client test
+|   `-- test_voice_ws_end_to_end.py # Voice WebSocket test script
+|-- temp_audio/                     # Temporary upload directory
+|-- app.db                          # SQLite database containing app state & memory
+|-- main.py                         # FastAPI server initialization and routing
+|-- requirements.txt                # Python dependencies
+`-- README.md                       # Documentation
 ```
 
-Note: `chat_routes.py` and `voice_routes.py` are currently mounted in `main.py`. Other route files are present for earlier or future experiments but are not currently mounted.
+Note: `chat_routes.py`, `voice_routes.py`, and `websocket_routes.py` are mounted in `main.py`. `tts_routes.py` is present for direct TTS testing but is not currently mounted.
 
 ## Setup Instructions
 
@@ -236,14 +265,24 @@ You can also use a local development server such as VS Code Live Server, as long
 
 ## Usage
 
-1. Start the FastAPI backend.
-2. Start the frontend server.
-3. Open the frontend in a browser.
-4. Hold the microphone button and speak.
-5. Release the button to send the recording to the backend.
-6. The backend transcribes the audio, generates a Groq response, converts it to speech, and returns a WAV file.
-7. The browser plays the generated voice response.
-8. Use Stop Speaking to interrupt current playback and return to a ready state.
+### 1. Start the Backend & Frontend
+* Make sure your backend and frontend servers are running (see Setup instructions).
+* Open the application in your browser (typically `http://localhost:5500`).
+
+### 2. Push-to-Talk (PTT) Mode
+1. Ensure the mode toggle is set to **Push-to-Talk**.
+2. Click and **hold** the microphone button while speaking.
+3. **Release** the button when you are done.
+4. The system transcribes your audio, triggers the LangChain agent (fetching database notes/todos or executing tools if requested), generates TTS audio, and streams it back.
+5. The browser plays the generated audio response.
+6. Click **Stop Speaking** to interrupt current audio playback at any point.
+
+### 3. Real-Time Streaming Mode
+1. Toggle the switch to **Streaming**.
+2. Click the microphone button once to connect to the `/ws/stream-voice` WebSocket and start streaming audio.
+3. Speak into the microphone; you will see the **Waveform Visualizer** capture your voice, and live captions will display the incoming transcription in real-time.
+4. Stop speaking or click the mic button again to finalize input. The agent will process your query, and streaming TTS chunks will play sequentially.
+5. If the agent starts speaking and you wish to interrupt it, either speak again or click **Stop Speaking** to cancel background tasks and reset the state.
 
 ## API Endpoints
 
@@ -260,16 +299,25 @@ Accepts a text message and returns a Groq-generated response with session memory
 Accepts an uploaded audio file from the browser and returns generated speech audio.
 
 Pipeline:
-
 ```text
-audio file -> Sarvam STT -> Groq -> Sarvam TTS -> audio/wav
+audio file -> Sarvam STT -> Groq / Agent -> Sarvam TTS -> audio/wav
 ```
-
 The response remains playable audio. The backend also exposes transcript and AI response text through response headers so the lightweight conversation panel can render the exchange without changing the core audio contract.
 
 ### `GET /voice-test`
 
-Runs a hardcoded voice test prompt through Groq and Sarvam TTS, then returns a generated WAV file.
+Runs a hardcoded voice test prompt through Groq / Agent and Sarvam TTS, then returns a generated WAV file.
+
+### `WebSocket /ws/chat`
+
+A simple text-based WebSocket endpoint to exchange text messages with conversational memory.
+
+### `WebSocket /ws/stream-voice`
+
+An event-driven audio streaming WebSocket.
+* **Input events**: `start` (sends `session_id`), `stop` (completes speech stream and triggers agent STT -> LLM -> TTS), `interrupt` (stops speaking and cancels active tasks).
+* **Input bytes**: Raw PCM 16kHz audio chunks from mic.
+* **Output events**: `transcript` (updates live transcription), `text_stream` (streams agent response tokens), `audio` (Base64 WAV chunks), `generation_complete`, `interrupted`, and `error`.
 
 ## AI-Native Development Workflow
 
@@ -286,23 +334,18 @@ These rules are intended to make AI-native iteration safer by giving coding assi
 
 ## Current Limitations
 
-- Voice interaction is request-response based, not realtime streaming.
-- Interruption handling is frontend-side: Stop Speaking immediately stops current browser playback, but provider calls already in progress are not cancelled server-side.
-- Conversational memory is in-memory only and resets when the backend restarts.
-- Generated audio files are stored locally in `generated_audio/`.
-- The frontend is intentionally minimal and currently optimized for desktop browser use.
-- WebSocket route files exist in the repository, but websocket routes are not mounted in the active FastAPI app.
+- **Interruption in HTTP Mode**: In Push-to-Talk (HTTP) mode, Stop Speaking only halts browser audio playback; any in-progress API calls on the backend will finish execution. (WebSocket Streaming Mode does support proper task cancellation).
+- **Session-Scoped SQLite States**: The Notes, Todos, and Memory databases are session-scoped and stored inside `app.db`. Currently, there is no cross-session data merging or authentication.
+- **Local Audio Storage**: Generated WAV files are saved locally in the `generated_audio/` folder, which accumulates files over time.
+- **Desktop Focus**: The frontend is optimized primarily for desktop browsers (Chrome, Edge, Firefox) that support WebRTC / MediaRecorder APIs.
 
 ## Future Roadmap
 
-- Realtime streaming speech-to-text and text-to-speech
-- More natural interruption handling while the assistant is speaking
-- Long-term memory backed by a persistent database or vector store
-- Multi-agent architecture for task planning and tool use
-- Stronger frontend states for recording, processing, speaking, and errors
-- Authentication and user-specific memory
-- Deployment-ready configuration for cloud hosting
-- Observability for latency, API failures, and conversation quality
+- **Vector Store Database**: Back long-term agent memory with a vector database (e.g., Chroma, Qdrant) to support semantic search.
+- **Authentication**: Add user logins, allowing multi-user isolation of conversations, notes, and tasks.
+- **Cloud Deployment**: Configuration files for Docker/Kubernetes and cloud deployment guides (AWS, GCP, or Render).
+- **Advanced Interruption Handling**: Enable wake-word detection or full-duplex conversations where the agent stops speaking immediately upon user voice activity detection (VAD).
+- **Multi-Agent Systems**: Expand the LangChain agent into a multi-agent team capable of collaborative task execution.
 
 ## Author
 
