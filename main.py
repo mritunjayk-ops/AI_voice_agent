@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.chat_routes import router as chat_router
 from app.api.routes.voice_routes import router as voice_router
+from app.api.routes.websocket_routes import router as websocket_router
 
 from app.core.logger import logger
 
@@ -72,3 +73,5 @@ async def health():
 app.include_router(chat_router)
 
 app.include_router(voice_router)
+
+app.include_router(websocket_router)

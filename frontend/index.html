@@ -36,6 +36,16 @@
             AI Voice Agent
         </h1>
 
+        <!-- Mode Toggle Switch -->
+        <div class="toggle-container">
+            <span class="toggle-label active" id="labelPtt">Push-to-Talk</span>
+            <label class="switch">
+                <input type="checkbox" id="modeToggle" aria-label="Toggle between Push-to-Talk and Real-time Streaming">
+                <span class="slider round"></span>
+            </label>
+            <span class="toggle-label" id="labelStream">Streaming</span>
+        </div>
+
         <button id="micButton"
                 type="button">
             <svg class="mic-icon"
@@ -48,17 +58,28 @@
             </svg>
         </button>
 
+        <!-- Waveform Visualizer -->
+        <div class="visualizer-container">
+            <canvas id="waveformCanvas" width="320" height="80"></canvas>
+        </div>
+
+        <div id="centerStatus" class="center-status-text ready">Ready</div>
+
         <button id="stopSpeakingButton"
                 type="button"
                 disabled>
             Stop Speaking
         </button>
 
-        <div class="instructions">
+        <!-- Live Captions Container -->
+        <div id="captionsContainer" class="captions-container hidden">
+            <div class="captions-label">Live Transcript</div>
+            <div id="liveCaptions" class="live-captions"></div>
+        </div>
 
+        <div class="instructions" id="instructionsText">
             Hold the mic button while speaking.<br>
             Release it when finished.
-
         </div>
 
     </main>
