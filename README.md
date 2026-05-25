@@ -19,7 +19,8 @@ I built this project to explore how a practical Voice AI assistant can be assemb
 ## Features
 
 - **Dual Interaction Modes**: Push-to-Talk (HTTP/WAV) and Real-time Streaming (WebSockets).
-- **LangChain-Powered Conversational Agent**: Equipped with tools to manage notes, todos, search conversation history, and perform calculations.
+- **LangChain-Powered Conversational Agent**: Equipped with tools to manage notes, todos, search conversation history, search the internet, and perform calculations.
+- **Internet Search Tooling**: Uses Tavily search for current web information and a direct Bitcoin price lookup for price-specific queries.
 - **WebSocket Streaming Mode**: Real-time continuous speech streaming from browser to backend.
 - **Dynamic Waveform Visualization**: Live visual feedback on both audio input and output using HTML5 Canvas.
 - **Real-Time Live Captions**: Transcribes incoming streaming speech in real-time on the UI.
@@ -51,7 +52,7 @@ Browser microphone
     -> POST /voice-chat
     -> FastAPI backend
     -> Sarvam Speech-to-Text
-    -> Groq / LangChain Agent (with tools & SQLite memory)
+    -> Groq / LangChain Agent (with tools, internet search, and SQLite memory)
     -> Sarvam Text-to-Speech
     -> WAV audio response
     -> Browser playback
@@ -114,6 +115,8 @@ The logs are intended to support demo review, performance evaluation, and future
 - Groq LLM API (Llama models)
 - Sarvam AI Speech-to-Text
 - Sarvam AI Text-to-Speech
+- Tavily Search API
+- CoinGecko price API for Bitcoin price lookups
 
 ### Frontend
 
@@ -153,6 +156,7 @@ ai_voice_agent/
 |   |-- tools/
 |   |   |-- conversation_tools.py   # Search conversation history tool
 |   |   |-- notes_tools.py          # Save, list, and search notes tools
+|   |   |-- search_tools.py         # Internet search and price lookup tools
 |   |   |-- todo_tools.py           # Add, list, and complete todo tools
 |   |   `-- utility_tools.py        # Calculator & clock utility tools
 |   `-- utils/
@@ -215,6 +219,7 @@ Create a `.env` file in the project root:
 ```env
 GROQ_API_KEY=your_groq_api_key
 SARVAM_API_KEY=your_sarvam_api_key
+TAVILY_API_KEY=your_tavily_api_key
 ```
 
 ## Running the Application
@@ -273,9 +278,17 @@ You can also use a local development server such as VS Code Live Server, as long
 1. Ensure the mode toggle is set to **Push-to-Talk**.
 2. Click and **hold** the microphone button while speaking.
 3. **Release** the button when you are done.
-4. The system transcribes your audio, triggers the LangChain agent (fetching database notes/todos or executing tools if requested), generates TTS audio, and streams it back.
+4. The system transcribes your audio, triggers the LangChain agent or deterministic search route (fetching database notes/todos, executing tools, or searching the internet when requested), generates TTS audio, and streams it back.
 5. The browser plays the generated audio response.
 6. Click **Stop Speaking** to interrupt current audio playback at any point.
+
+Example search prompts:
+
+```text
+Search the internet for the latest AI news today.
+What is the current Bitcoin price?
+Give me polity questions from UPSC prelims 2026 paper.
+```
 
 ### 3. Real-Time Streaming Mode
 1. Toggle the switch to **Streaming**.
@@ -335,6 +348,7 @@ These rules are intended to make AI-native iteration safer by giving coding assi
 ## Current Limitations
 
 - **Interruption in HTTP Mode**: In Push-to-Talk (HTTP) mode, Stop Speaking only halts browser audio playback; any in-progress API calls on the backend will finish execution. (WebSocket Streaming Mode does support proper task cancellation).
+- **Search Coverage Depends on External Results**: Internet search answers are grounded in Tavily or price API results. If exact source data is unavailable, the assistant should say so rather than inventing details.
 - **Session-Scoped SQLite States**: The Notes, Todos, and Memory databases are session-scoped and stored inside `app.db`. Currently, there is no cross-session data merging or authentication.
 - **Local Audio Storage**: Generated WAV files are saved locally in the `generated_audio/` folder, which accumulates files over time.
 - **Desktop Focus**: The frontend is optimized primarily for desktop browsers (Chrome, Edge, Firefox) that support WebRTC / MediaRecorder APIs.
